@@ -1,0 +1,21 @@
+# Secrets. Never commit this. .env.example is the template that is committed.
+.env
+.env.local
+.env.*.local
+
+# Generated data
+outputs/
+qdrant_storage/
+build_metrics.json
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+
+# Editors
+.vscode/
+.idea/
+.DS_Store

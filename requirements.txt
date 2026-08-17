@@ -1,0 +1,3 @@
+hipporag>=2.0.0
+qdrant-client
+python-dotenv

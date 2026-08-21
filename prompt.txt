@@ -1,0 +1,93 @@
+I have a working HippoRAG 2 pipeline (PyPI version 2.0.0a4, parquet vector
+store). I want to add two things to query.py: source attribution and JSON
+output. Do not rewrite the file; give me the changed parts with enough
+surrounding context that I can place them.
+
+VERIFIED FACTS ABOUT HippoRAG 2.0.0a4
+
+I read these from the installed package, so treat them as given rather than
+guessing:
+
+1. QuerySolution is a dataclass in hipporag/utils/misc_utils.py with fields:
+   question: str
+   docs: List[str]
+   doc_scores: np.ndarray
+   answer: str
+   gold_answers: List[str]
+   gold_docs: Optional[List[str]]
+
+2. retrieve(queries, num_to_retrieve) returns List[QuerySolution] when
+   gold_docs is not passed. rag_qa(queries) returns a 3-tuple whose first
+   element is List[QuerySolution].
+
+3. docs contains passage TEXT, not hash ids. In HippoRAG.py the line is:
+   top_k_docs = [self.chunk_embedding_store.get_row(self.passage_node_keys[idx])["content"]
+                 for idx in sorted_doc_ids[:num_to_retrieve]]
+   So the hash is used internally and then discarded.
+
+4. Passage hash ids are computed as:
+   prefix + md5(content.encode()).hexdigest()
+   where prefix is "chunk-" for passages and "entity-" for phrases. No
+   stripping, lowercasing or other normalisation is applied to the content
+   before hashing.
+
+5. hipporag.chunk_embedding_store exposes a text_to_hash_id dict mapping the
+   exact stored text to its hash id. This is a more reliable way to recover
+   the id than rehashing, because it cannot drift if the hashing changes.
+
+MY SETUP
+
+- Chunks come from MariaDB, not a docs folder. Each row has filename,
+  chunk_id, content, plus metadata, start_index, end_index.
+- index.py calls prepare_docs, which drops empties, deduplicates, and merges
+  short chunks within document boundaries. It writes passage_map.json mapping
+  each HippoRAG passage hash to the source chunks that produced it. I fetch
+  filename per chunk, so the map can carry filename as well as chunk_id.
+- hippo_factory.py builds the HippoRAG object from settings.py, which reads
+  .env via python-dotenv.
+- query.py has two modes: default rag_qa, and --retrieve which shows passages
+  only. It prints answers and reports median and p95 latency.
+
+PART 1: SOURCE ATTRIBUTION
+
+For every answer I need to know which source document each retrieved passage
+came from. The corpus is medical device documentation, so an answer drawn from
+the wrong device's manual is a safety problem rather than a cosmetic one.
+
+Using fact 5 above, show how to turn each string in solution.docs into a
+passage hash, then resolve that hash through passage_map.json to a filename.
+Handle the case where a passage is not found in the map, since merged
+documents may not round-trip cleanly.
+
+If passage_map.json needs to store filename alongside chunk_id, show that
+change on the index.py side too.
+
+Also give me a small one-off verification script that proves the lookup works
+on my data: take one entry from passage_map.json, fetch the corresponding
+content from MariaDB, and confirm the hash matches. I want evidence rather
+than an assumption.
+
+PART 2: JSON OUTPUT
+
+Write every run to a file so I can compare configurations later.
+
+Per question: the question, the answer, latency in seconds, and for each
+retrieved passage its rank, source filename, chunk ids, and a short excerpt.
+
+Per run: a timestamp, the extraction and generation model names, the embedding
+model, the synonymy threshold, the three top k values, and the latency summary
+(median and p95). Read these from settings.py rather than hardcoding them.
+
+Make the output path configurable through .env with a default. Default to
+appending runs rather than overwriting, so a sweep over settings accumulates
+in one place. If a different structure serves comparison better, say why.
+
+CONSTRAINTS
+
+- Keep the existing --retrieve mode working, and add source attribution there
+  as well since that mode is what I use for diagnosis.
+- Show the settings.py field, the load() line and the .env.example entry for
+  any new setting.
+- If anything you write goes beyond the five verified facts above, mark it as
+  an assumption and say how I can check it.
+- No em dashes.

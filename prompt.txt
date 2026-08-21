@@ -91,3 +91,15 @@ CONSTRAINTS
 - If anything you write goes beyond the five verified facts above, mark it as
   an assumption and say how I can check it.
 - No em dashes.
+
+Additional verified fact:
+
+6. rag_qa() calls retrieve() without num_to_retrieve, so it defaults to
+   retrieval_top_k (200 in my config). The truncation to qa_top_k happens
+   later, inside qa(), at the line:
+   retrieved_passages = query_solution.docs[:self.global_config.qa_top_k]
+
+   So solution.docs holds retrieval_top_k passages, but only the first
+   qa_top_k reached the answer model. When recording sources, record the
+   first qa_top_k, since those are the ones that shaped the answer. Do not
+   write all 200 to the JSON file.
